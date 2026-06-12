@@ -1,5 +1,8 @@
 # DOOM 3 BFG Resource Editor
 
+<img width="1920" height="1080" alt="Screenshot (1065)" src="https://github.com/user-attachments/assets/ac761621-aca8-45ca-a13f-bf31bad830cd" />
+
+
 A standalone **Python + Tkinter** GUI for browsing and editing DOOM 3 BFG
 Edition `.resources` container files — including the **Xbox 360** build's
 mixed‑endian variant (your `_common.resources`) as well as the PC build.
