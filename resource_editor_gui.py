@@ -16,6 +16,7 @@ Features
 * Hex-ish preview for binary entries.
 * Extract a single entry, or extract everything, to disk.
 * Replace any entry's bytes from an external file (e.g. an edited blob).
+* Replace and add a whole folder tree in one operation.
 * Add new files and delete existing ones.
 * Save / Save As, rebuilding the archive with correct offsets and the
   original platform's byte order (verified byte-identical round-trip).
@@ -92,6 +93,9 @@ class ResourceEditorApp:
         editm = tk.Menu(menubar, tearoff=0)
         editm.add_command(label="Replace Selected From File…",
                           command=self.replace_from_file)
+        editm.add_command(label="Replace/Add Files From Folder…",
+                          command=self.replace_add_from_folder)
+        editm.add_separator()
         editm.add_command(label="Add File…", command=self.add_file)
         editm.add_command(label="Delete Selected", command=self.delete_selected)
         menubar.add_cascade(label="Edit", menu=editm)
@@ -420,6 +424,101 @@ class ResourceEditorApp:
         self._update_title()
         self.set_status(f"Replaced {self.current_entry.name} "
                         f"({fmt_size(len(data))}).")
+
+    @staticmethod
+    def _folder_files(folder: str) -> list[tuple[str, str]]:
+        """Return ``(archive_name, disk_path)`` pairs below *folder*.
+
+        Selecting either the extraction root (which contains ``generated``)
+        or the ``generated`` directory itself produces archive paths beginning
+        with ``generated/``.
+        """
+        folder = os.path.abspath(folder)
+        prefix = ""
+        scan_root = folder
+        if os.path.basename(folder).lower() == "generated":
+            prefix = "generated"
+        else:
+            # An extraction destination can also contain the source archive or
+            # notes.  When it has a generated child, import only that tree.
+            generated = next(
+                (name for name in os.listdir(folder)
+                 if name.lower() == "generated" and
+                 os.path.isdir(os.path.join(folder, name))),
+                None)
+            if generated:
+                scan_root = os.path.join(folder, generated)
+                prefix = "generated"
+        files = []
+        for directory, dirnames, filenames in os.walk(scan_root):
+            dirnames.sort(key=str.lower)
+            filenames.sort(key=str.lower)
+            for filename in filenames:
+                disk_path = os.path.join(directory, filename)
+                relative = os.path.relpath(disk_path, scan_root)
+                archive_name = os.path.join(prefix, relative) if prefix \
+                    else relative
+                files.append((archive_name.replace(os.sep, "/"), disk_path))
+        return files
+
+    def replace_add_from_folder(self) -> None:
+        if not self.archive:
+            messagebox.showinfo("Bulk Replace/Add",
+                                "Open an archive first.")
+            return
+        if self.editor_dirty and not self._confirm_discard_edit():
+            return
+        folder = filedialog.askdirectory(
+            title="Choose folder containing generated (or generated itself)")
+        if not folder:
+            return
+
+        try:
+            files = self._folder_files(folder)
+        except OSError as exc:
+            messagebox.showerror("Bulk Replace/Add",
+                                 f"Could not scan the folder:\n{exc}")
+            return
+        if not files:
+            messagebox.showinfo("Bulk Replace/Add",
+                                "The selected folder contains no files.")
+            return
+        replacements = sum(
+            self.archive.find(name) is not None for name, _ in files)
+        additions = len(files) - replacements
+        if not messagebox.askyesno(
+                "Bulk Replace/Add",
+                f"Import {len(files)} files from:\n{folder}\n\n"
+                f"Replace existing: {replacements}\n"
+                f"Add new: {additions}\n\n"
+                "Continue?"):
+            return
+
+        try:
+            loaded = []
+            for name, path in files:
+                with open(path, "rb") as fh:
+                    loaded.append((name, fh.read()))
+        except OSError as exc:
+            messagebox.showerror("Bulk Replace/Add",
+                                 f"Could not read the folder:\n{exc}")
+            return
+
+        for name, data in loaded:
+            self.archive.upsert_entry(name, data)
+        self.dirty = True
+        self.editor_dirty = False
+        self.current_entry = None
+        self.refresh_list()
+        self._clear_editor()
+        self._update_title()
+        self.set_status(
+            f"Folder imported: replaced {replacements}, added {additions} "
+            "(remember to Save the archive).")
+        messagebox.showinfo(
+            "Bulk Replace/Add complete",
+            f"Replaced {replacements} files and added {additions} files.\n\n"
+            "Use File > Save to write the changes to the archive.")
 
     def add_file(self) -> None:
         if not self.archive:

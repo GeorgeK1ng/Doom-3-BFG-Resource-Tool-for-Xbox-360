@@ -23,6 +23,11 @@ edit, so saved files stay valid for the engine.
 - **Hex preview** for binary entries (`.bimage`, `.bmd5anim`, `.cgb`, …).
 - **Extract** one file or **Extract All** to a folder tree.
 - **Replace** any entry's bytes from an external file.
+- **Replace/Add a folder tree in bulk** — choose an extraction folder that
+  contains `generated`, or choose the `generated` folder itself. Every file in
+  the selected tree replaces the matching archive entry or is added when it
+  does not exist. This also works with a partial tree containing only the files
+  you changed.
 - **Add** and **Delete** entries.
 - **Save / Save As**, rebuilding the archive with correct offsets and the
   source file's original byte order.
