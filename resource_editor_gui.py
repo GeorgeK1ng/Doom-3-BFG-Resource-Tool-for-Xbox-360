@@ -450,7 +450,13 @@ class ResourceEditorApp:
                 scan_root = os.path.join(folder, generated)
                 prefix = "generated"
         files = []
-        for directory, dirnames, filenames in os.walk(scan_root):
+
+        def abort_on_walk_error(error: OSError) -> None:
+            """Do not silently turn a failed directory scan into an import."""
+            raise error
+
+        for directory, dirnames, filenames in os.walk(
+                scan_root, onerror=abort_on_walk_error):
             dirnames.sort(key=str.lower)
             filenames.sort(key=str.lower)
             for filename in filenames:

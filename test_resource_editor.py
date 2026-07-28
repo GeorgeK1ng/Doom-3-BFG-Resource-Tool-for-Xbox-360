@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 from resource_archive import ResourceArchive
 from resource_editor_gui import ResourceEditorApp
@@ -31,6 +32,17 @@ class BulkImportTests(unittest.TestCase):
             files = ResourceEditorApp._folder_files(generated)
 
             self.assertEqual(files, [("generated/maps/test.bin", path)])
+
+    def test_folder_files_raises_when_walk_cannot_scan_directory(self):
+        with tempfile.TemporaryDirectory() as root:
+            generated = os.path.join(root, "generated")
+            os.makedirs(generated)
+            error = PermissionError("nested directory is unreadable")
+
+            with mock.patch("resource_editor_gui.os.scandir",
+                            side_effect=error):
+                with self.assertRaisesRegex(PermissionError, "unreadable"):
+                    ResourceEditorApp._folder_files(generated)
 
     def test_upsert_replaces_case_insensitively_and_adds(self):
         archive = ResourceArchive()
