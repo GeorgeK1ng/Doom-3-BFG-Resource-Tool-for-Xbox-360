@@ -218,6 +218,19 @@ class ResourceArchive:
         self.entries.append(e)
         return e
 
+    def upsert_entry(self, name: str, data: bytes) -> tuple[ResourceEntry, bool]:
+        """Replace an existing entry or add it when it is not in the archive.
+
+        Returns ``(entry, added)`` so callers can report how many files were
+        replaced and how many were newly added.
+        """
+        e = self.find(name)
+        if e is not None:
+            e.data = data
+            e.length = len(data)
+            return e, False
+        return self.add_entry(name, data), True
+
     def remove_entry(self, name: str) -> None:
         e = self.find(name)
         if e is not None:
